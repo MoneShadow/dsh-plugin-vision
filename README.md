@@ -22,6 +22,7 @@
 ## 安装
 
 ```bash
+git clone https://github.com/MoneShadow/dsh-plugin-vision && cd dsh-plugin-vision
 ./install.sh                 # 一键安装到 web profile
 ./install.sh headless        # 安装到其他 profile
 ```
