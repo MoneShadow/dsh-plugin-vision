@@ -7,11 +7,19 @@
 #   3. 清除 profile 里 pnpm 留下的依赖副本，让解析回落到 heal 软链层
 #   4. manifest 的 bundles 加名（dependencies 不写 file: 条目）
 #
-# 用法：./install.sh [profile]     # 默认 web
+# 用法：./install.sh [profile]             # 安装到指定 profile（默认 web）
+#       ./install.sh uninstall [profile]   # 从 profile 卸载插件
 # 铁律：目标 profile 不能被任何引擎占用（先退出 DSH Desktop / 停掉相关引擎）！
 set -euo pipefail
 
-PROFILE="${1:-web}"
+MODE="install"
+PROFILE="web"
+if [ "${1:-}" = "uninstall" ]; then
+  MODE="uninstall"
+  PROFILE="${2:-web}"
+else
+  PROFILE="${1:-web}"
+fi
 PLUGIN_SRC="$(cd "$(dirname "$0")" && pwd)"
 PLUGIN_NAME="dsh-plugin-vision"
 HOME_DIR="${HOME:-$(getent passwd "$(id -u)" | cut -d: -f6)}"
@@ -26,6 +34,7 @@ detect_dsh_dir() {
     done
   fi
   if [ -z "$bin" ]; then
+    if [ "$MODE" = "uninstall" ]; then echo ""; return; fi  # 卸载模式容忍 dsh 已不存在
     echo "❌ 找不到 dsh 可执行文件（请先安装 @deepseek-ai/dsh 或把 dsh 加入 PATH）" >&2
     exit 1
   fi
@@ -37,6 +46,42 @@ detect_dsh_dir() {
 DSH_NODE_MODULES="$(detect_dsh_dir)"
 PROFILE_DIR="$HOME_DIR/.dsh/profiles/$PROFILE"
 PROFILE_NM="$PROFILE_DIR/node_modules"
+
+if [ "$MODE" = "uninstall" ]; then
+  if [ ! -f "$PROFILE_DIR/package.json" ]; then
+    echo "ℹ️  profile [$PROFILE] 不存在，无需卸载"
+    exit 0
+  fi
+  echo "==> 卸载 $PLUGIN_NAME ← profile [$PROFILE]"
+  # 引擎检测：运行中禁止改 profile（铁律）
+  RUNNING=$(pgrep -af "dsh --profile $PROFILE " | grep -v bwrap | grep -v install.sh || true)
+  if [ -n "$RUNNING" ]; then
+    echo "⚠️  检测到 [$PROFILE] profile 的引擎正在运行："
+    echo "$RUNNING"
+    echo "    禁止在运行中修改 profile！请先退出应用再执行。"
+    exit 1
+  fi
+  # 1. manifest：移除 bundles 声明 + dependencies 条目（保持自洽）
+  python3 - "$PROFILE_DIR/package.json" "$PLUGIN_NAME" <<'PY'
+import json, sys
+path, name = sys.argv[1], sys.argv[2]
+d = json.load(open(path))
+d.setdefault('dsh', {}).setdefault('profile', {}).setdefault('bundles', [])
+d['dsh']['profile']['bundles'] = [b for b in d['dsh']['profile']['bundles'] if b != name]
+d.setdefault('dependencies', {})
+d['dependencies'].pop(name, None)
+json.dump(d, open(path, 'w'), indent=2, ensure_ascii=False)
+print(f"bundles = {d['dsh']['profile']['bundles']}")
+PY
+  # 2. 删除 profile 软链
+  rm -f "$PROFILE_NM/$PLUGIN_NAME" 2>/dev/null || true
+  # 3. 删除全局树实体
+  if [ -n "$DSH_NODE_MODULES" ]; then
+    rm -rf "$DSH_NODE_MODULES/$PLUGIN_NAME" 2>/dev/null || true
+  fi
+  echo "==> 卸载完成。引擎重启后插件不再加载。"
+  exit 0
+fi
 
 if [ ! -d "$PLUGIN_SRC/lib" ]; then echo "❌ 插件源码不完整：$PLUGIN_SRC"; exit 1; fi
 if [ ! -f "$PROFILE_DIR/package.json" ]; then echo "❌ profile 不存在：$PROFILE_DIR"; exit 1; fi

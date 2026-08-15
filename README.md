@@ -57,10 +57,12 @@ vision:
 ## 卸载
 
 ```bash
-# 1. 从 profile manifest 移除 bundles 条目
-# 2. 删除软链：rm ~/.dsh/profiles/<profile>/node_modules/dsh-plugin-vision
-# 3. 删除全局树实体：rm -rf <dsh依赖树>/dsh-plugin-vision
+./install.sh uninstall            # 从 web profile 卸载
+./install.sh uninstall headless   # 从其他 profile 卸载
 ```
+
+脚本会同步移除：manifest 的 bundles 声明与 dependencies 条目（保持 profile 自洽）、
+profile 软链、全局树实体。**引擎运行时拒绝操作**（铁律），退出应用后重跑即可。
 
 ## 故障排查
 
