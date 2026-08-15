@@ -12,6 +12,24 @@
   保存即时生效（无需重启引擎）
 - **密钥安全**：apiKey 以 secret 角色存储（官方设置 UI 中 write-only 不回显）
 
+## 与 DSH Desktop 的配合（重要：粘贴转路径不是本插件的功能）
+
+**"粘贴图片自动转路径"由 [DSH Desktop](https://github.com/MoneShadow/DeepSeek-Harness-linux-)
+（桌面端）内置实现，不是本插件的一部分**——它是 UI 层功能：
+
+```
+用户粘贴图片 → DSH Desktop 向官方 UI iframe 注入的补丁（监听 paste、检测图片格式）
+→ 拦截官方附件流程 → 图片存盘 → 自动把 "[图片] /真实路径" 插入输入框
+→ 主模型看到路径 → 调用本插件的 vision_describe 查看
+```
+
+- **为什么不在插件里**：粘贴事件监听必须在浏览器 UI 层，而插件运行在引擎
+  （dsh 进程）侧，无法感知浏览器粘贴操作
+- **配置共享**：该功能的开关 `autoPath` 存在同一段 `settings.yaml` 的 `vision:` 段，
+  由 DSH Desktop 读取并控制注入行为；本插件仅同步声明该字段，不实现功能
+- 只安装本插件（不使用 DSH Desktop）时：没有粘贴自动转路径，需要手动把图片
+  路径/URL 传给 `vision_describe`
+
 ## 可用性分层
 
 | 层 | 说明 |
@@ -43,6 +61,7 @@ git clone https://github.com/MoneShadow/dsh-plugin-vision && cd dsh-plugin-visio
 ```yaml
 vision:
   enabled: true
+  autoPath: true                        # 桌面端粘贴图片自动转路径（DSH Desktop 功能，非本插件实现）
   baseURL: https://api.openai.com/v1   # 任意 OpenAI 兼容服务（通义千问/智谱/SiliconFlow/OpenAI…）
   apiKey: ""                            # 视觉模型 API 密钥
   model: gpt-4o-mini                    # 如 qwen-vl-max / glm-4v-plus
