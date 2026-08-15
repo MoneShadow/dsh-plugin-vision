@@ -3,6 +3,20 @@
 给 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 装上"眼睛"的视觉辅助插件：
 注册 `vision_describe` 工具，让没有视觉能力的主模型通过任意 OpenAI 兼容视觉 API 描述图片。
 
+## 效果展示
+
+**主模型调用 `vision_describe` 看图**（官方 Web UI 真实会话）：Agent 通过工具查看本地图片并作答；同一张图、同一个提问再次调用时命中答案缓存，返回与首次逐字一致的结果，不重复消耗视觉 API。
+
+<img src="assets/vision-chat.png" width="640" alt="主模型通过 vision_describe 查看图片并作答（二次同参调用结果一致，缓存命中）" />
+
+**配置**（DSH Desktop 设置面板 → 视觉助手，或编辑 `~/.dsh/settings.yaml` 的 `vision:` 段）：总开关、粘贴转路径开关、接口/密钥/模型/超时，以及答案缓存（开关 / TTL / 条目上限），保存即时生效。
+
+<img src="assets/vision-settings.png" width="360" alt="视觉助手设置：开关、接口、缓存参数" />
+
+**粘贴图片自动转路径**（[DSH Desktop](https://github.com/MoneShadow/DeepSeek-Harness-linux-) 内置功能，非本插件实现，详见下节）：在官方 UI 输入框粘贴图片 → 拦截官方附件流程 → 图片存盘 → 自动插入 `[图片] /真实路径` → 主模型调用 `vision_describe` 查看。
+
+<img src="assets/vision-paste.png" width="640" alt="粘贴图片后输入框自动插入 [图片] 真实路径" />
+
 ## 功能
 
 - **工具**：`vision_describe(image, prompt?)` —— 本地路径 / file:// / http(s) URL 均可，
