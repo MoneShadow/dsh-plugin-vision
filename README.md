@@ -7,6 +7,8 @@
 
 - **工具**：`vision_describe(image, prompt?)` —— 本地路径 / file:// / http(s) URL 均可，
   本地图片以 base64 data URL 发送，返回视觉模型的文本描述
+- **答案缓存**：按"图片内容哈希 + 接口 + 模型 + 提问"缓存描述结果（TTL + LRU 上限），
+  同一张图重复查看直接命中缓存，不再消耗视觉 API 调用；对主模型透明，错误不缓存
 - **开关语义**：`enabled=false` 时工具仍注册但返回明确提示，主模型会据此提醒用户开启
 - **配置热更新**：配置存 `~/.dsh/settings.yaml` 的 `vision:` 段，引擎监视文件变化，
   保存即时生效（无需重启引擎）
@@ -66,6 +68,9 @@ vision:
   apiKey: ""                            # 视觉模型 API 密钥
   model: gpt-4o-mini                    # 如 qwen-vl-max / glm-4v-plus
   timeoutMs: 60000
+  cache: true                           # 按图片内容哈希缓存描述结果（命中免重复请求）
+  cacheTtlSeconds: 3600                 # 缓存有效期（秒）
+  cacheMaxEntries: 200                  # 缓存条目上限（超出按 LRU 淘汰最久未用）
 ```
 
 保存后**即时生效**（引擎 chokidar 监视 settings.yaml，外部编辑热发布）。
@@ -103,7 +108,8 @@ execCommand → 主进程剪贴板兜底），与本插件无关。
 ## 开发
 
 ```bash
-node --test tests/describe.test.js   # 11 用例：图片源转换/请求构造/错误/超时/配置引导
+node --test tests/describe.test.js tests/attachments.test.js tests/cache.test.js
+# 43 用例：图片源转换/请求构造/错误/超时/配置引导/缓存命中与淘汰
 ```
 
 结构：
@@ -111,6 +117,8 @@ node --test tests/describe.test.js   # 11 用例：图片源转换/请求构造/
 ```
 lib/index.js      # Cordis 插件：注册 vision_describe 工具 + settings namespace（vision）
 lib/describe.js   # 纯函数：图片→data URL、OpenAI 兼容 /chat/completions 调用（可单测）
+lib/cache.js      # 纯内存答案缓存：sha256 内容哈希 + TTL + LRU 上限淘汰（可单测）
+lib/attachments.js# 附件上下文渲染 + 配置兜底读取（可单测）
 cordis.patch.yml  # bundle patch：host plane 工具行（全局 agent 可见）
 tests/            # node:test 单元测试
 install.sh        # 一键安装（正确挂载方式，见上）
